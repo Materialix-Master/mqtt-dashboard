@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>MQTT Dashboard</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background: #f4f4f4;
+    }
+
+    h1 {
+        text-align: center;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        max-width: 700px;
+        margin: auto;
+    }
+
+    .label {
+        font-weight: bold;
+        background: #ddd;
+        padding: 10px;
+        border-radius: 5px;
+    }
+
+    .value {
+        background: white;
+        padding: 10px;
+        border-radius: 5px;
+        min-height: 20px;
+    }
+</style>
+</head>
+<body>
+
+<h1>MQTT Dashboard</h1>
+
+<div class="grid" id="dashboard"></div>
+
+<script>
+// -------------------------------
+// MQTT Einstellungen
+// -------------------------------
+const broker = "wss://73ce57c55611405784c7675d700075eb.s1.eu.hivemq.cloud/mqtt";
+const options = {
+    username: "data.sg-massbach.de",
+    password: "SG-Massbach1"
+};
+
+// -------------------------------
+// Einfache Topics (ein Wert)
+// -------------------------------
+const displayTopics = {
+    "sensor/temperatur": "Temperatur",
+    "sensor/luftfeuchte": "Luftfeuchte",
+    "system/uptime": "System Uptime",
+    "system/batterie": "Batteriestatus"
+};
+
+// -------------------------------
+// JSON-Topics (mehrere Werte)
+// -------------------------------
+const jsonTopics = {
+    "Schuetzenhaus/zigbee2mqtt/Sensor-Eingang": {
+        battery: "Batterie",
+        device_temperature: "Gerätetemperatur",
+        illuminance: "Helligkeit",
+        occupancy: "Bewegung erkannt",
+        linkquality: "Linkqualität"
+    }
+};
+
+// -------------------------------
+// Dashboard dynamisch erzeugen
+// -------------------------------
+const dashboard = document.getElementById("dashboard");
+
+// Einfache Topics
+Object.entries(displayTopics).forEach(([topic, label]) => {
+    const labelDiv = document.createElement("div");
+    labelDiv.className = "label";
+    labelDiv.innerText = label;
+
+    const valueDiv = document.createElement("div");
+    valueDiv.className = "value";
+    valueDiv.id = topic.replace(/\//g, "_");
+
+    dashboard.appendChild(labelDiv);
+    dashboard.appendChild(valueDiv);
+});
+
+// JSON Topics
+Object.entries(jsonTopics).forEach(([topic, fields]) => {
+    Object.entries(fields).forEach(([key, label]) => {
+        const labelDiv = document.createElement("div");
+        labelDiv.className = "label";
+        labelDiv.innerText = label;
+
+        const valueDiv = document.createElement("div");
+        valueDiv.className = "value";
+        valueDiv.id = (topic + "_" + key).replace(/\//g, "_");
+
+        dashboard.appendChild(labelDiv);
+        dashboard.appendChild(valueDiv);
+    });
+});
+
+// -------------------------------
+// MQTT Client starten
+// -------------------------------
+const client = mqtt.connect(broker, options);
+
+client.on("connect", () => {
+    console.log("✅ MQTT verbunden");
+});
+
+client.on("error", (err) => {
+    console.error("❌ MQTT Fehler:", err);
+});
+
+client.on("connect", () => {
+    console.log("MQTT verbunden");
+
+    // Einfache Topics abonnieren
+    Object.keys(displayTopics).forEach(topic => client.subscribe(topic));
+
+    // JSON Topics abonnieren
+    Object.keys(jsonTopics).forEach(topic => client.subscribe(topic));
+});
+
+client.on("message", (topic, message) => {
+    const text = message.toString();
+    console.log("MQTT:", topic, text);
+
+    // JSON-Topic?
+    if (jsonTopics[topic]) {
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            console.error("JSON-Fehler:", e);
+            return;
+        }
+
+        Object.keys(jsonTopics[topic]).forEach(key => {
+            const id = (topic + "_" + key).replace(/\//g, "_");
+            const field = document.getElementById(id);
+
+            if (field) {
+                field.innerText = data[key] ?? "—";
+            }
+        });
+
+        return;
+    }
+
+    // Einfaches Topic
+    const id = topic.replace(/\//g, "_");
+    const field = document.getElementById(id);
+
+    if (field) {
+        field.innerText = text;
+    }
+});
+</script>
+
+</body>
+</html>
