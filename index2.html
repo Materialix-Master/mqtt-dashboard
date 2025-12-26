@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>MQTT Test</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+
+<h2>MQTT WebSocket Test</h2>
+<div id="status">Verbinde...</div>
+<pre id="log"></pre>
+
+<script>
+// -------------------------------
+// MQTT Einstellungen
+// -------------------------------
+const broker = "wss://73ce57c55611405784c7675d700075eb.s1.eu.hivemq.cloud/mqtt";
+const options = {
+    username: "data.sg-massbach.de",
+    password: "SG-Massbach1"
+};
+
+// -------------------------------
+// Verbindung herstellen
+// -------------------------------
+const client = mqtt.connect(broker, options);
+
+const status = document.getElementById("status");
+const log = document.getElementById("log");
+
+function write(msg) {
+    console.log(msg);
+    log.textContent += msg + "\n";
+}
+
+// -------------------------------
+// Events
+// -------------------------------
+client.on("connect", () => {
+    status.textContent = "✅ Verbunden mit HiveMQ Cloud";
+    write("MQTT: Verbindung erfolgreich");
+
+    // Testtopic abonnieren
+    client.subscribe("test/topic");
+    write("Abonniert: test/topic");
+});
+
+client.on("error", (err) => {
+    status.textContent = "❌ Fehler – siehe Konsole";
+    write("MQTT Fehler: " + err.message);
+});
+
+client.on("close", () => {
+    write("MQTT: Verbindung geschlossen");
+});
+
+client.on("message", (topic, message) => {
+    write("Nachricht empfangen → " + topic + ": " + message.toString());
+});
+</script>
+
+</body>
+</html>
